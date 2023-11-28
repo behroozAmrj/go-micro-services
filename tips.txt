@@ -1,0 +1,24 @@
+---------------------------------
+Docker 
+docker-compose up --build -d
+---------------------------------
+
+go mod init broker
+
+command in row:
+go get github.com/go-chi/chi/v5
+go get github.com/go-chi/chi/v5/middleware  
+go get github.com/go-chi/cors
+
+----------------------------------------------------------------
+Authentication-services:
+go get golang.org/x/crypto/bcrypt
+go get github.com/jackc/pgconn
+go get github.com/jackc/pgx/v4
+go get github.com/jackc/pgx/v4/stdlib
+
+----------------------------------------------------------------
+Logger-service 
+--mongodb
+go get go.mongodb.org/mongo-driver/mongo
+go get go.mongodb.org/mongo-driver/mongo/options
