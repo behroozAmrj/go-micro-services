@@ -22,3 +22,7 @@ Logger-service
 --mongodb
 go get go.mongodb.org/mongo-driver/mongo
 go get go.mongodb.org/mongo-driver/mongo/options
+
+----------------------------------------------------------------
+Insatlling RabbitMQ
+go get github.com/rabbitmq/amqp091-go 

@@ -5,10 +5,16 @@ import (
 	"bytes"
 	"encoding/json"
 	"errors"
+	"fmt"
+	"log"
+	"math"
 	"net/http"
+	"time"
 
 	//"shop.service/src/models"
 
+	amqp "github.com/rabbitmq/amqp091-go"
+	"shop.service/event"
 	helper "shop.service/src/api/helpers"
 	model "shop.service/src/models"
 )
@@ -67,7 +73,8 @@ func HandleSubmission(w http.ResponseWriter, r *http.Request) {
 	case "auth":
 		authenticate(w, requestPayload.Auth)
 	case "log":
-		logItem(w, requestPayload.Log)
+		conn , _ := connect()
+		logEventViaRabbit(w, requestPayload.Log , conn)
 	case "mail":
 		sendMail(w, requestPayload.Mail)
 	default:
@@ -200,4 +207,70 @@ func sendMail(w http.ResponseWriter, msg MailPayLoad) {
 		http.StatusAccepted,
 		payLoad)
 
+}
+
+func logEventViaRabbit(w http.ResponseWriter, l LogPayload , app *amqp.Connection) {
+	err := pushToQueue(l.Name, l.Data , app)
+	if err != nil {
+		helper.ErrorJSON(w, err)
+		return
+	}
+
+	var payload model.JsonResponse
+	payload.Error = false
+	payload.Message = "logged via RabbitMQ"
+
+	helper.WriteJson(w, http.StatusAccepted, payload)
+}
+
+// pushToQueue pushes a message into RabbitMQ
+func  pushToQueue(name, msg string , app *amqp.Connection) error {
+	emitter, err := event.NewEventEmitter(app)
+	if err != nil {
+		return err
+	}
+
+	payload := LogPayload{
+		Name: name,
+		Data: msg,
+	}
+
+	j, _ := json.MarshalIndent(&payload, "", "\t")
+	err = emitter.Push(string(j), "log.INFO")
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+
+func connect() (*amqp.Connection, error) {
+	var counts int64
+	var backOff = 1 * time.Second
+	var connection *amqp.Connection
+
+	// don't continue until rabbit is ready
+	for {
+		c, err := amqp.Dial("amqp://guest:guest@rabbitmq")
+		if err != nil {
+			fmt.Println("RabbitMQ not yet ready...")
+			counts++
+		} else {
+			log.Println("Connected to RabbitMQ!")
+			connection = c
+			break
+		}
+
+		if counts > 5 {
+			fmt.Println(err)
+			return nil, err
+		}
+
+		backOff = time.Duration(math.Pow(float64(counts), 2)) * time.Second
+		log.Println("backing off...")
+		time.Sleep(backOff)
+		continue
+	}
+
+	return connection, nil
 }
